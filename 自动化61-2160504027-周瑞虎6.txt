@@ -1,0 +1,364 @@
+%%%%%%%%%%%%%%%%%
+q1
+close all
+clear
+
+me = 0;
+sigma = 25.5;
+
+m1 = 7;%均值滤波的时候的窗口大小
+n1 = 7;
+src = im2double(imread("lena.bmp"));
+[m,n] = size(src);
+
+
+figure(1)
+subplot(2,4,1);
+imshow(src,[]);
+title("原图");
+
+
+
+src1 = imnoise(src, 'gaussian', me, sigma^2/255^2); %double 0-1
+subplot(2,4,2);
+imshow(src1,[]);
+title("噪声图");
+src1 = src1 * 255;
+
+
+f = padarray(src1,[m1 n1],'replicate');
+g = colfilt(f,[m1 n1],'sliding',@mean);%算术均值
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,4,3);
+imshow(s,[]);
+title("算术均值滤波器");
+
+f = padarray(src1,[m1 n1],'replicate');
+tf = @(A) prod(A,1).^(1/(m1 * n1));
+g = colfilt(f,[m1 n1],'sliding',tf);%几何均值
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,4,4);
+imshow(s,[]);
+title("几何均值滤波器");
+
+
+f = padarray(src1,[m1 n1],'replicate');
+tf = @(A,Q) sum(A .^(Q + 1),1) ./  sum((A + eps) .^Q,1)
+g = colfilt(f,[m1 n1],'sliding',tf,-1);
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,4,5);
+imshow(s,[]);
+title("谐波均值滤波器");
+
+
+f = padarray(src1,[m1 n1],'replicate');
+g = colfilt(f,[m1 n1],'sliding',@median);
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,4,6);
+imshow(s,[]);
+title("中值滤波器");
+
+
+% f = padarray(src1,[m1 n1],'replicate');
+% g = colfilt(f,[m1 n1],'sliding',@max);
+% s = uint8(g(m1 + 1:m + m1,n1 + 1:n + n1));
+% subplot(2,4,5);
+% imshow(s);
+% title("最大值滤波器");
+% 
+% f = padarray(src1,[m1 n1],'replicate');
+% g = colfilt(f,[m1 n1],'sliding',@min);
+% s = uint8(g(m1 + 1:m + m1,n1 + 1:n + n1));
+% subplot(2,4,6);
+% imshow(s);
+% title("最小值滤波器");
+
+f = padarray(src1,[m1 n1],'replicate');
+tf = @(A)(max(A) + min(A))/2;
+g = colfilt(f,[m1 n1],'sliding',tf);
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,4,7);
+imshow(s,[]);
+title("中点滤波器");
+
+f = padarray(src1,[m1 n1],'replicate');
+tf1 = @(A) sort(A,1);
+tf2 = @(A)tf1(d/2 :m1 * n1 - d/2 - 1, :);
+tf = @(A,s)(sum(tf1(A),1) / (m1 * n1 - s));
+d = 8;
+g = colfilt(f,[m1 n1],'sliding',tf,d);
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,4,8);
+imshow(s,[]);
+title(sprintf("阿尔法均值滤波器 d = %d",d));
+
+
+figure(2)
+subplot(1,4,1);
+imshow(src,[]);
+title("原图");
+
+
+
+subplot(1,4,2);
+imshow(src1,[]);
+title("噪声图");
+
+
+f = padarray(src1,[m1 n1],'replicate');
+tf = @(A,deta) A((m1*n1 + 1) / 2,:) - (A((m1*n1 + 1) / 2,:) - mean(A,1)) * deta ./ var(A,1); %自适应
+sigma11 = 25.5^2;
+g = colfilt(f,[m1 n1],'sliding',tf,sigma11);%%噪声的方差
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(1,4,3);
+imshow(s,[]);
+title(sprintf("自适应局部降低噪声滤波器 sigma = %d",sigma11));
+
+f = padarray(src1,[m1 n1],'replicate');
+g = colfilt(f,[m1 n1],'sliding',@med1,m1,n1);%%噪声的方差
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(1,4,4);
+imshow(s,[]);
+title(sprintf("自适应中值滤波器"));
+
+function [out] = med1(in,m1,n1)
+in = double(in);
+[m n] = size(in);
+ x = (m1 + 1) / 2;
+ y = (n1 + 1) / 2;
+for i = 1:n
+   
+    temp = reshape(in(:,i),m1,n1);
+    k = 1;
+    while( k <= (m1 - 1) / 2)
+    temp1 = temp(x-k:x+k,y-k:y+k);
+    z1 = min(temp1(:));
+    z2 = max(temp1(:));
+    zmed = median(temp1(:));
+    zxy = median(temp1(:));
+    k = k + 1;
+    
+    if (zmed - z1 > 0 && zmed - z2 < 0 && zxy - z1 > 0 && zxy - z2 < 0)
+         out(1,i) = zxy;
+        break;
+    elseif(k == (m1 - 1) / 2 + 1)
+        out(1,i) = zmed;
+        break;
+    elseif(k < (m1 - 1) / 2 + 1 && zmed - z1 > 0 && zmed - z2 < 0)
+        out(1,i) = zmed;
+        break;
+    end
+    
+    end%while
+end
+
+end
+
+%%%%%%%%%%%%%%%%%
+q2
+close all
+
+m1 = 3;
+n1 = 3;
+
+src = im2double(imread("lena.bmp"));
+[m n]  =size(src);
+d = 0.1;
+srcsp = (imnoise(src,'salt & pepper',d));
+% Pepper Noise
+t = rand(m,n);
+s = t > 0.1;
+srcp = src .* s;
+imshow(srcp,[]);
+s = t < 0.9;
+srcs = src .* s + ones(m,n) .* (1 - s);
+imshow(srcs,[]);
+figure(2)
+subplot(1,4,1);
+imshow(src,[]);
+title("原图");
+subplot(1,4,2);
+imshow(srcsp,[]);
+title("椒盐噪声 密度均为0.1");
+subplot(1,4,3);
+imshow(srcs,[]);
+title("盐噪声 密度为0.1");
+subplot(1,4,4);
+imshow(srcp,[]);
+title("椒噪声 密度为0.1");
+
+figure(1)
+subplot(2,3,1);
+imshow(src,[]);
+title("原图");
+
+f = padarray(srcs,[m1 n1],'replicate');      %%%%salt
+tf = @(A,Q) sum(A .^(Q + 1),1) ./  sum((A + eps) .^Q,1);
+Q = -1.5;
+g = colfilt(f,[m1 n1],'sliding',tf,Q);
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,3,2);
+imshow(s,[]);
+title(sprintf("逆谐波均值滤波器 Q = %d 处理盐噪声污染图片",Q));
+
+f = padarray(srcp,[m1 n1],'replicate');      %%%%pepper
+tf = @(A,Q) sum(A .^(Q + 1),1) ./  sum((A + eps) .^Q,1);
+Q = 2;
+g = colfilt(f,[m1 n1],'sliding',tf,Q);
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,3,3);
+imshow(s,[]);
+title(sprintf("逆谐波均值滤波器 Q = %d 处理椒噪声污染图片",Q));
+
+f = padarray(srcsp,[m1 n1],'replicate');%%salt and pepper
+g = colfilt(f,[m1 n1],'sliding',@median);
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,3,4);
+imshow(s,[]);
+title("中值滤波器");
+
+f = padarray(srcsp,[m1 n1],'replicate');
+tf1 = @(A) sort(A,1);
+tf2 = @(A)tf1(d/2 :m1 * n1 - d/2 - 1, :);
+tf = @(A,s)(sum(tf1(A),1) / (m1 * n1 - s));
+d = 8;
+g = colfilt(f,[m1 n1],'sliding',tf,d);
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,3,5);
+imshow(s,[]);
+title(sprintf("阿尔法均值滤波器 d = %d",d));
+
+
+f = padarray(srcsp,[m1 n1],'replicate');
+g = colfilt(f,[m1 n1],'sliding',@med1,m1,n1);%%噪声的方差
+s = (g(m1 + 1:m + m1,n1 + 1:n + n1));
+subplot(2,3,6);
+imshow(s,[]);
+title(sprintf("自适应中值滤波器"));
+
+function [out] = med1(in,m1,n1)
+in = double(in);
+[m n] = size(in);
+ x = (m1 + 1) / 2;
+ y = (n1 + 1) / 2;
+for i = 1:n
+   
+    temp = reshape(in(:,i),m1,n1);
+    k = 1;
+    while( k <= (m1 - 1) / 2)
+    temp1 = temp(x-k:x+k,y-k:y+k);
+    z1 = min(temp1(:));
+    z2 = max(temp1(:));
+    zmed = median(temp1(:));
+    zxy = median(temp1(:));
+    k = k + 1;
+    
+    if (zmed - z1 > 0 && zmed - z2 < 0 && zxy - z1 > 0 && zxy - z2 < 0)
+         out(1,i) = zxy;
+        break;
+    elseif(k == (m1 - 1) / 2 + 1)
+        out(1,i) = zmed;
+        break;
+    elseif(k < (m1 - 1) / 2 + 1 && zmed - z1 > 0 && zmed - z2 < 0)
+        out(1,i) = zmed;
+        break;
+    end
+    
+    end%while
+end
+
+end
+
+%%%%%%%%%%
+q3
+m1 = 7;
+n1 = 7;
+
+src = double(imread("lena.bmp"));
+[m n]  = size(src);
+src1 = zeros(2*m,2*n);
+src1(1:m,1:n) = src;
+
+I_dft = fft2(src1);
+fts = fftshift(I_dft);
+
+x = 1:2*m;
+y = 1:2*n;
+T = 1;
+a  = 0.05;
+b = 0.05;
+[y,x] = meshgrid(y,x);
+x = x - m * ones(2*m,2*n);
+y = y - n * ones(2*m,2*n);
+H = T * ones(2*m,2*n) ./ (pi * x * a + pi * y * b + eps) .* sin(pi * x * a + pi * y * b) .* complex(cos(pi * x * a + pi * y * b),-sin(pi * x * a + pi * y * b));
+fts1 = H .* fts;
+
+
+
+%  srcg = imnoise(image_corr1, 'gaussian', 0, 10^2/255^2); %double 0-1
+%  imshow(srcg,[]);
+corr = normrnd(zeros(m,n),ones(m,n) * 10 ^ 0.5);
+corr1 = zeros(2*m,2*n);
+corr1(1:m,1:n) = corr;
+corrf = fft2(corr1);
+corrf = fftshift(corrf);
+fts2 = fts1 + corrf;
+
+figure(1)
+image_corr = real(ifft2(ifftshift(fts2)));
+image_corr1 = image_corr(1:m,1:n);
+subplot(1,3,1);
+imshow(image_corr1,[]);
+title("模糊并加入了噪声的图像");
+
+
+k = 0.001;
+% src1 = zeros(2*m,2*n);
+% src1(1:m,1:n) = srcg;
+% I_dft = fft2(src1);
+% fts2 = fftshift(I_dft);
+fts3 =  abs(H).^2 ./ (abs(H).^2 + k) .* fts2 ./ (H + eps);
+image_re = real(ifft2(ifftshift(fts3)));
+ image_re = image_re(1:m,1:n);
+subplot(1,3,2);
+imshow(image_re,[]);
+title("维纳滤波器恢复结果");
+
+
+k1 = 10^(-5);
+r = 100;
+a = 200;
+wh = [10^(-5) 10^(-5) 10^(-5)];
+step = 10^(-6);
+while (1)
+% I_dft = fft2(srcg);
+% fts1 = fftshift(I_dft);
+P = zeros(2*m,2*n);
+P(m-1:m+1,n-1:n+1) = [0 -1 0;-1 4 -1; 0 -1 0];
+P1 = fft2(P);
+fts1 = conj(H) ./ (abs(H + eps).^2 + k1 .* abs(P1 + eps).^2) .* fts2;
+image_re1 = real(ifft2(fftshift(fts1)));
+g = fts2 - H .* fts1;
+temp = real(ifft2(ifftshift(g)));
+r = sum(sum(temp(1:m,1:n).^2,2),1);
+z = m*n*(10);
+
+if (k1 == wh(3))
+    step = step / 2;
+end
+
+if (abs(r - z) < a)
+break;
+elseif(r < z - a)
+    
+    k1 = k1 + step;
+else
+    k1 = k1 - step;
+end
+wh(1) = wh(2);
+wh(2) = wh(3);
+wh(3) = k1;
+subplot(1,3,3);
+imshow((image_re1(1:m,1:n)),[]);
+title("约束最小二乘误差滤波器恢复结果");
+end
